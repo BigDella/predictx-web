@@ -120,7 +120,7 @@ export default function RootLayout({
         </CardErrorBoundary>
 
         {/* Content: pad for fixed header (4rem = h-16) on all breakpoints */}
-        <div className="pt-16 pb-16 md:pb-0" />
+        <div className="pt-16 pb-16 md:pt-[7rem] md:pb-0" />
         <PageTransition>
           {children}
         </PageTransition>

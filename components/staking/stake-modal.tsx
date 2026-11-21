@@ -93,10 +93,6 @@ interface StakeModalProps {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function generateMockLedger() {
-  return 50_000_000 + Math.floor(Math.random() * 1_000_000);
-}
-
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 /** Wallet confirmation overlay imitating Stellar wallet prompts */
@@ -201,7 +197,6 @@ function WalletConfirmPopup({
 function ProcessingOverlay() {
   const shouldReduceMotion = useReducedMotion();
   return (
-return (
     <motion.div
       role="alert"
       aria-live="polite"
@@ -399,7 +394,9 @@ function SuccessOverlay({
           </div>
           <div className="flex justify-between">
             <span className="text-[var(--muted-foreground)]">Ledger</span>
-            <span className="text-foreground">#{receipt.ledger.toLocaleString()}</span>
+            <span className="text-foreground">
+              {receipt.simulated ? "Simulated — not submitted" : `#${receipt.ledger?.toLocaleString()}`}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-[var(--muted-foreground)]">Fee</span>
@@ -407,7 +404,7 @@ function SuccessOverlay({
           </div>
         </div>
 
-        <button
+        {!receipt.simulated && <button
           className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--accent-cyan)] hover:underline"
           onClick={() =>
             window.open(
@@ -417,7 +414,7 @@ function SuccessOverlay({
           }
         >
           View on StellarExpert <ExternalLink className="w-3 h-3" />
-        </button>
+        </button>}
 
         <div className="mt-5">
           <GamingButton variant="primary" size="sm" onClick={onClose} className="w-full">

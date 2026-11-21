@@ -3,7 +3,7 @@
  */
 
 import { xdr, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
-import type { Poll, Stake, StellarPublicKey } from "@/types";
+import type { Poll, PollCategory, PollStatus, Stake, StellarPublicKey } from "@/types";
 
 /** 1 XLM = 10,000,000 stroops */
 export const STROOPS_PER_XLM = 10_000_000;
@@ -52,13 +52,51 @@ export function stakeToScVal(amountXlm: number): xdr.ScVal {
   return nativeToScVal(stroops, { type: "i128" });
 }
 
+function decodedRecord(val: xdr.ScVal): Record<string, unknown> {
+  const raw = scValToNative(val);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Expected a Soroban record");
+  }
+  return raw as Record<string, unknown>;
+}
+
+function field(raw: Record<string, unknown>, ...names: string[]): unknown {
+  return names.map((name) => raw[name]).find((value) => value !== undefined && value !== null);
+}
+
+function bigintField(value: unknown, name: string): bigint {
+  if (typeof value === "bigint" || typeof value === "number" || typeof value === "string") {
+    return BigInt(value);
+  }
+  throw new Error(`Invalid Soroban ${name}`);
+}
+
+function pollCategory(value: unknown): PollCategory {
+  return value === "player_event" || value === "score_prediction" || value === "other"
+    ? value
+    : "team_event";
+}
+
+function pollStatus(value: unknown): PollStatus {
+  return value === "locked" || value === "voting" || value === "admin-review" ||
+    value === "multi-sig-review" || value === "dispute" || value === "resolved"
+    ? value
+    : "active";
+}
+
+function stakeStatus(value: unknown): Stake["status"] {
+  return value === "won" || value === "lost" || value === "pending_resolution"
+    ? value
+    : "active";
+}
+
 /**
  * Convert Soroban ScVal to frontend Poll
  */
 export function scValToPoll(val: xdr.ScVal): Poll {
-  const raw = scValToNative(val) as Record<string, any>;
-  const yesPoolStroops = BigInt(raw.yes_pool ?? raw.yesPool ?? 0);
-  const noPoolStroops = BigInt(raw.no_pool ?? raw.noPool ?? 0);
+  const raw = decodedRecord(val);
+  const yesPoolStroops = bigintField(field(raw, "yes_pool", "yesPool") ?? 0, "yes_pool");
+  const noPoolStroops = bigintField(field(raw, "no_pool", "noPool") ?? 0, "no_pool");
   const totalStroops = yesPoolStroops + noPoolStroops;
 
   const yesPool = stroopsToXlm(yesPoolStroops);
@@ -71,29 +109,29 @@ export function scValToPoll(val: xdr.ScVal): Poll {
     totalPool > 0 ? 100 - yesPercentage : 50;
 
   return {
-    id: String(raw.id ?? raw.poll_id ?? "0"),
-    matchId: String(raw.match_id ?? raw.matchId ?? ""),
+    id: String(field(raw, "id", "poll_id") ?? "0"),
+    matchId: String(field(raw, "match_id", "matchId") ?? ""),
     question: String(raw.question ?? ""),
-    category: raw.category ?? "team-event",
+    category: pollCategory(raw.category),
     yesPool,
     noPool,
     totalPool,
     yesPercentage,
     noPercentage,
-    yesParticipants: Number(raw.yes_participants ?? raw.yesParticipants ?? 0),
-    noParticipants: Number(raw.no_participants ?? raw.noParticipants ?? 0),
+    yesParticipants: Number(field(raw, "yes_participants", "yesParticipants") ?? 0),
+    noParticipants: Number(field(raw, "no_participants", "noParticipants") ?? 0),
     lockTime: raw.lock_time ? new Date(Number(raw.lock_time) * 1000).toISOString() : new Date().toISOString(),
-    status: raw.status ?? "active",
-    resolutionStatus: raw.resolution_status ?? undefined,
-    result: raw.result ?? undefined,
-    createdBy: (raw.created_by ?? raw.creator ?? "") as StellarPublicKey,
+    status: pollStatus(raw.status),
+    resolutionStatus: raw.resolution_status as Poll["resolutionStatus"],
+    result: raw.result as Poll["result"],
+    createdBy: String(field(raw, "created_by", "creator") ?? "") as StellarPublicKey,
     createdAt: raw.created_at ? new Date(Number(raw.created_at) * 1000).toISOString() : new Date().toISOString(),
     resolvedAt: raw.resolved_at ? new Date(Number(raw.resolved_at) * 1000).toISOString() : undefined,
     stakes: [],
     votes: [],
     yesPoolStroops,
     noPoolStroops,
-    contractSeq: Number(raw.contract_seq ?? raw.sequence ?? 0),
+    contractSeq: Number(field(raw, "contract_seq", "sequence") ?? 0),
   };
 }
 
@@ -101,21 +139,21 @@ export function scValToPoll(val: xdr.ScVal): Poll {
  * Convert Soroban ScVal to frontend Stake
  */
 export function scValToStake(val: xdr.ScVal): Stake {
-  const raw = scValToNative(val) as Record<string, any>;
-  const amountStroops = BigInt(raw.amount ?? raw.amount_stroops ?? 0);
+  const raw = decodedRecord(val);
+  const amountStroops = bigintField(field(raw, "amount", "amount_stroops") ?? 0, "amount");
   const amount = stroopsToXlm(amountStroops);
 
   return {
-    id: String(raw.id ?? raw.stake_id ?? "0"),
-    pollId: String(raw.poll_id ?? raw.pollId ?? ""),
-    matchId: String(raw.match_id ?? raw.matchId ?? ""),
-    userId: (raw.user_id ?? raw.voter ?? raw.user ?? "") as StellarPublicKey,
+    id: String(field(raw, "id", "stake_id") ?? "0"),
+    pollId: String(field(raw, "poll_id", "pollId") ?? ""),
+    matchId: String(field(raw, "match_id", "matchId") ?? ""),
+    userId: String(field(raw, "user_id", "voter", "user") ?? "") as StellarPublicKey,
     side: raw.side === 1 || raw.side === "yes" ? "yes" : "no",
     amount,
     timestamp: raw.timestamp ? new Date(Number(raw.timestamp) * 1000).toISOString() : new Date().toISOString(),
-    status: raw.status ?? "active",
-    potentialWinnings: raw.potential_winnings ? stroopsToXlm(raw.potential_winnings) : undefined,
-    actualWinnings: raw.actual_winnings ? stroopsToXlm(raw.actual_winnings) : undefined,
+    status: stakeStatus(raw.status),
+    potentialWinnings: raw.potential_winnings ? stroopsToXlm(bigintField(raw.potential_winnings, "potential_winnings")) : undefined,
+    actualWinnings: raw.actual_winnings ? stroopsToXlm(bigintField(raw.actual_winnings, "actual_winnings")) : undefined,
     amountStroops,
   };
 }

@@ -34,6 +34,7 @@ export function EvidenceSection({ matchId, className }: EvidenceSectionProps) {
                 onClick={() => setIsExpanded(!isExpanded)}
                 aria-expanded={isExpanded}
                 aria-controls="evidence-section-panel"
+                aria-describedby="evidence-tooltip"
                 className="w-full flex items-center justify-between p-4 bg-surface/50 hover:bg-surface transition-colors focus:outline-none"
             >
                 <div className="flex items-center gap-3">
@@ -44,19 +45,7 @@ export function EvidenceSection({ matchId, className }: EvidenceSectionProps) {
                         Match Evidence & Logs
                     </span>
                     <div className="group relative ml-2">
-                        <span
-                            tabIndex={0}
-                            role="button"
-                            aria-describedby="evidence-tooltip"
-                            aria-label="Evidence instructions"
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                    e.stopPropagation();
-                                }
-                            }}
-                            className="inline-flex items-center justify-center rounded focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                        >
+                        <span aria-hidden="true" className="inline-flex items-center justify-center rounded">
                             <Info className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors cursor-help" />
                         </span>
                         <div

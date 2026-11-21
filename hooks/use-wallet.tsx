@@ -22,7 +22,8 @@ export interface ConnectPayload {
 
 export interface TransactionReceipt {
   hash: string;
-  ledger: number;
+  ledger: number | null;
+  simulated: boolean;
   fee: string;
   from: string;
   to: string;
@@ -417,7 +418,8 @@ export const useWallet = create<WalletState>()(
 
         const receipt: TransactionReceipt = {
           hash: hashBytes,
-          ledger: 50_000_000 + Math.floor(Math.random() * 1_000_000),
+          ledger: null,
+          simulated: true,
           fee: `${STELLAR_BASE_FEE} stroops (${feeXLM.toFixed(7)} XLM)`,
           from: state.address,
           // Name the contract on the network the wallet is actually connected
